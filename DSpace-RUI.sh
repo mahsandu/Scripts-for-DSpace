@@ -41,7 +41,7 @@ do
 ###################################################
 cat > $DSCONF << "EOF"
 # Automatically generated file; DO NOT EDIT / DO NOT DELETE.
-DSPACE_PATH=/REPOSITORY
+DSPACE_PATH=/
 DSPACE_URL=https://github.com/DSpace/DSpace/releases/download/dspace-6.3/dspace-6.3-src-release.tar.gz
 PSQL_SOU=/etc/postgresql/9.5/main
 DSPACE_US=/home/dspace/.bashrc
@@ -94,7 +94,7 @@ EOF
 done
 ########################## Module A ##########################
 PM_Prerequisites(){
-	apt-get install wget curl  openjdk-8-jdk tomcat7 apache2 ant maven postgresql-9.5 git ufw dos2unix -y
+	apt-get install wget curl  openjdk-8-jdk tomcat9 apache2 ant maven postgresql postgresql-contrib git ufw dos2unix -y
 	ufw default deny incoming
 	ufw default allow outgoing
 	ufw allow 22
