@@ -41,7 +41,7 @@ do
 ###################################################
 cat > $DSCONF << "EOF"
 # Automatically generated file; DO NOT EDIT / DO NOT DELETE.
-DSPACE_PATH=/
+DSPACE_PATH=/REPOSITORY
 DSPACE_URL=https://github.com/DSpace/DSpace/releases/download/dspace-6.3/dspace-6.3-src-release.tar.gz
 PSQL_SOU=/etc/postgresql/9.5/main
 DSPACE_US=/home/dspace/.bashrc
