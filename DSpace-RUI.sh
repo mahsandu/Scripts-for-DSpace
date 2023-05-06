@@ -43,11 +43,11 @@ cat > $DSCONF << "EOF"
 # Automatically generated file; DO NOT EDIT / DO NOT DELETE.
 DSPACE_PATH=/
 DSPACE_URL=https://github.com/DSpace/DSpace/releases/download/dspace-6.3/dspace-6.3-src-release.tar.gz
-PSQL_SOU=/etc/postgresql/9.5/main
+PSQL_SOU=/etc/postgresql/12/main
 DSPACE_US=/home/dspace/.bashrc
-JAVA_TCNANA=/etc/default/tomcat7
-TCNANA_CON=/var/lib/tomcat7/conf/server.xml
-TCATA=/var/lib/tomcat7/conf/Catalina/localhost
+JAVA_TCNANA=/etc/default/tomcat9
+TCNANA_CON=/var/lib/tomcat9/conf/server.xml
+TCATA=/var/lib/tomcat9/conf/Catalina/localhost
 REPO_MURL=localhost
 EOF
 ###################################################
@@ -94,7 +94,7 @@ EOF
 done
 ########################## Module A ##########################
 PM_Prerequisites(){
-	apt-get install wget curl  openjdk-8-jdk tomcat9 apache2 ant maven postgresql postgresql-contrib git ufw dos2unix -y
+	apt-get install wget curl  openjdk-8-jdk tomcat9 apache2 ant maven postgresql postgresql-12 postgresql-contrib git ufw dos2unix -y
 	ufw default deny incoming
 	ufw default allow outgoing
 	ufw allow 22
@@ -105,13 +105,13 @@ PM_Prerequisites(){
 }
 PM_Prerequisites_Mirage2(){
 	#NPM & Yarn
-	curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -
+	curl -sL https://deb.nodesource.com/setup_16.x | sudo -E bash -
 	curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
 	echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
 	apt-get update -y
 	apt-get install git-core curl zlib1g-dev build-essential libssl-dev libreadline-dev libyaml-dev libsqlite3-dev sqlite3 libxml2-dev libxslt1-dev libcurl4-openssl-dev software-properties-common libffi-dev nodejs yarn -y  
 	#Ruby & Compass
-	apt install ruby-full ruby-compass -y
+	apt install ruby-full compass-blueprint-plugin -y
 	#Dependencies
 	gem install bundler
 	npm install -g grunt
@@ -396,7 +396,7 @@ PM_Postgres_C(){
 		  /etc/init.d/postgresql restart
 		fi 	
 	else
-		echo "You need to install postgresql 9.5"
+		echo "You need to install postgresql 12"
 	fi
 }
 PM_RestoreDB(){
@@ -438,11 +438,11 @@ PM_Misc_A(){
 }
 PM_Misc_B(){
 	source $DSCONF
-	if id -nG "tomcat7" | grep -qw "dspace"; then
+	if id -nG "tomcat9" | grep -qw "dspace"; then
 	    echo "tomcat user - Ok..."
 	else
 		echo "Setting the tomcat user..."
-	    usermod -a -G dspace tomcat7
+	    usermod -a -G dspace tomcat9
 	fi
 	###
 	chmod -R 775 $DSPACE_PATH/dspace
@@ -463,19 +463,19 @@ PM_Tomcat(){
 	echo "One moment, please... Configuring Tomcat Settings"
 	if [ -f "/etc/profile" ]
 	then
-		if grep -xq "export CATALINA_BASE=/var/lib/tomcat7" /etc/profile ; then
+		if grep -xq "export CATALINA_BASE=/var/lib/tomcat9" /etc/profile ; then
 			echo "CATALINA_BASE - Ok..."
 		else
 			echo "Setting CATALINA_BASE"
-		  	sed -i '$a export CATALINA_BASE=/var/lib/tomcat7' /etc/profile
+		  	sed -i '$a export CATALINA_BASE=/var/lib/tomcat9' /etc/profile
 		  	source /etc/profile
 		fi 
 		###
-		if grep -xq "export CATALINA_HOME=/usr/share/tomcat7" /etc/profile ; then
+		if grep -xq "export CATALINA_HOME=/usr/share/tomcat9" /etc/profile ; then
 		  	echo "CATALINA_HOME - Ok..."
 		else
 		  	echo "Setting CATALINA_HOME"
-		  	sed -i '$a export CATALINA_HOME=/usr/share/tomcat7' /etc/profile
+		  	sed -i '$a export CATALINA_HOME=/usr/share/tomcat9' /etc/profile
 		  	source /etc/profile
 		fi
 		###
@@ -514,7 +514,7 @@ PM_Tomcat(){
 			sed -i 's|<!-- Define an AJP 1.3 Connector on port 8009 -->|<Connector port="8009" protocol="AJP/1.3" redirectPort="8443" URIEncoding="UTF-8"/>|g' $TCNANA_CON
 			sed -i '$a <!--Adapting DSpace for tomcat-->' $TCNANA_CON
 			###
-			service tomcat7 restart
+			service tomcat9 restart
 			systemctl daemon-reload
 		fi
 	else
@@ -671,10 +671,10 @@ case $RULE in
     			PM_DSpace_A
     			su postgres -c "bash -c PM_Postgres_A"
     			PM_RestoreDB && PM_DSpace_B && PM_Postgres_B && PM_Postgres_C
-    			service tomcat7 stop && PM_DSpace_C
+    			service tomcat9 stop && PM_DSpace_C
     			su dspace -c "bash -c PM_DSpace_D"
     			su dspace -c "bash -c PM_Misc_A"
-    			service tomcat7 start && PM_Misc_B
+    			service tomcat9 start && PM_Misc_B
     			#Module B
     			PM_Tomcat && PM_Apache
 			else
@@ -684,10 +684,10 @@ case $RULE in
     			PM_DSpace_A
     			su postgres -c "bash -c PM_Postgres_A"
     			PM_RestoreDB && PM_DSpace_B && PM_Postgres_B && PM_Postgres_C
-    			service tomcat7 stop && PM_DSpace_C
+    			service tomcat9 stop && PM_DSpace_C
     			su dspace -c "bash -c PM_DSpace_D"
     			su dspace -c "bash -c PM_Misc_A"
-    			service tomcat7 start && PM_Misc_B
+    			service tomcat9 start && PM_Misc_B
     			#Module B
     			PM_Tomcat && PM_Apache
 			fi
@@ -713,20 +713,20 @@ case $RULE in
 			if getent passwd | grep -c '^dspace:' > /dev/null 2>&1; then
 				PM_Prerequisites_Mirage2
 				PM_DSpace_A && PM_DSpace_B
-				service tomcat7 stop && PM_DSpace_uC
+				service tomcat9 stop && PM_DSpace_uC
 	  			su dspace -c "bash -c PM_DSpace_D"
 				su dspace -c "bash -c PM_Misc_A"
-				service tomcat7 start && PM_Misc_uB
+				service tomcat9 start && PM_Misc_uB
 				whiptail --scrolltext --title "Important Note" --msgbox "Update the OAI-PMH index with the newest content and re-optimize that index. For example: \n [ /dspace/bin/dspace oai import -c ] \n \n Choose Ok to continue." 16 80 9
 			else
 				echo "Creating the user...."
     			useradd -m dspace
     			PM_Prerequisites_Mirage2
 				PM_DSpace_A && PM_DSpace_B
-				service tomcat7 stop && PM_DSpace_uC
+				service tomcat9 stop && PM_DSpace_uC
 	  			su dspace -c "bash -c PM_DSpace_D"
 				su dspace -c "bash -c PM_Misc_A"
-				service tomcat7 start && PM_Misc_uB
+				service tomcat9 start && PM_Misc_uB
 				whiptail --scrolltext --title "Important Note" --msgbox "Update the OAI-PMH index with the newest content and re-optimize that index. For example: \n [ /dspace/bin/dspace oai import -c ] \n \n Choose Ok to continue." 16 80 9
 			fi
 		else
