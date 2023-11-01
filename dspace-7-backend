@@ -6,31 +6,27 @@ TOMCAT_HOME="/home/IUBAR/TOMCAT"
 SOLR_HOME="/home/IUBAR/SOLR"
 DS_USER="IUBAR"
 DS_GROUP="IUBAR"
-DS_SRC_URL="https://github.com/DSpace/DSpace/releases/download/dspace-7.6/dspace-7.6-release.tar.gz"
+DS_SRC_URL="https://codeload.github.com/DSpace/DSpace/tar.gz/refs/tags/dspace-7.6"
 
 # Install required software
 apt-get update
-apt-get -y install openjdk-17-jdk maven ant
+apt-get -y install openjdk-17-jdk maven ant wget curl
 
-# Add PostgreSQL APT repository and install PostgreSQL 15
-echo "deb http://apt.postgresql.org/pub/repos/apt/ buster-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
-wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
-apt-get update
-apt-get -y install postgresql-15 postgresql-client-15 postgresql-contrib-15
+# Add PostgreSQL APT repository and install PostgreSQL
+
+apt-get -y install postgresql postgresql-client postgresql-contrib
 
 # Create a system user for DSpace
 useradd -m -d "$DS_HOME" -s /bin/bash -U -c "DSpace User" "$DS_USER"
 
-# Download DSpace source code
+# Download DSpace source code  
 mkdir -p "$DS_HOME"
 cd "$DS_HOME"
 wget "$DS_SRC_URL"
+mv dspace-7.6 dspace-7.6-release.tar.gz
 tar -zxvf dspace-7.6-release.tar.gz
 rm dspace-7.6-release.tar.gz
-cd dspace-7.6
-
-# Build DSpace
-mvn package
+cd DSpace-dspace-7.6
 
 # Configure PostgreSQL
 sudo -u postgres createuser -U postgres -d -A -P "$DS_USER"
@@ -38,15 +34,65 @@ sudo -u postgres createdb -U postgres -O "$DS_USER" "$DS_USER"
 sudo -u postgres psql -U postgres -d "$DS_USER" -c "CREATE EXTENSION pgcrypto;"
 
 # Configure DSpace
-sudo -u "$DS_USER" cp -r config/local.cfg.EXAMPLE config/local.cfg
-sudo -u "$DS_USER" cp -r config/modules/default.cfg.EXAMPLE config/modules/default.cfg
-sudo -u "$DS_USER" mvn package
-sudo -u "$DS_USER" ./dspace database migrate
-sudo -u "$DS_USER" ./dspace create-administrator
-sudo -u "$DS_USER" ./dspace run
+sudo  cp -r config/local.cfg.EXAMPLE config/local.cfg
+sudo  cp -r config/modules/default.cfg.EXAMPLE config/modules/default.cfg
+sudo  mvn clean
+sudo  mvn package
+sudo  ./dspace database migrate
+sudo  ./dspace create-administrator
+sudo  ./dspace run
 
-# Install and configure Tomcat
-apt-get -y install tomcat9
+# Define some variables
+TOMCAT_USER="$DS_USER"
+TOMCAT_GROUP="$DS_USER"
+
+# Create a system user for Tomcat
+useradd -m -U -d /opt/tomcat -s /bin/false -U -c "Apache Tomcat User" $TOMCAT_USER
+
+# Create the Tomcat directory and download Tomcat
+mkdir -p $TOMCAT_HOME
+cd $TOMCAT_HOME
+
+# Scrape the latest Tomcat version from the Apache website
+LATEST_VERSION=$(curl -s https://tomcat.apache.org/download-90.cgi | grep -o '9\.[0-9]\{1,2\}\.[0-9]\{1,2\}' | head -1)
+
+# Replace the URL with the latest Tomcat version download link
+TOMCAT_URL="https://downloads.apache.org/tomcat/tomcat-9/v$LATEST_VERSION/bin/apache-tomcat-$LATEST_VERSION.tar.gz"
+
+wget "$TOMCAT_URL" -O tomcat.tar.gz
+tar -xf tomcat.tar.gz --strip-components=1
+rm tomcat.tar.gz
+
+# Set permissions for the Tomcat directory
+chown -R $TOMCAT_USER:$TOMCAT_GROUP $TOMCAT_HOME
+
+# Create a systemd service file for Tomcat
+cat <<EOF > /etc/systemd/system/tomcat.service
+[Unit]
+Description=Apache Tomcat Web Application Container
+After=network.target
+
+[Service]
+Type=forking
+User=$TOMCAT_USER
+Group=$TOMCAT_GROUP
+Environment=CATALINA_HOME=$TOMCAT_HOME
+Environment=CATALINA_PID=$TOMCAT_HOME/temp/tomcat.pid
+ExecStart=$TOMCAT_HOME/bin/startup.sh
+ExecStop=$TOMCAT_HOME/bin/shutdown.sh
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Reload systemd and start Tomcat
+systemctl daemon-reload
+systemctl start tomcat
+systemctl enable tomcat
+
+# Print installation completion message
+echo "Tomcat $TOMCAT_VERSION has been successfully installed."
 
 # Configure Tomcat to run as $DS_USER
 echo "CATALINA_PID=\"$TOMCAT_HOME/temp/tomcat.pid\"" >> /etc/default/tomcat9
