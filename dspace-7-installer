@@ -1,0 +1,103 @@
+#!/bin/bash
+
+# Define some variables
+DS_HOME="/home/IUBAR/REPOSITORY"
+TOMCAT_HOME="/home/IUBAR/TOMCAT"
+SOLR_HOME="/home/IUBAR/SOLR"
+DS_USER="IUBAR"
+DS_GROUP="IUBAR"
+DS_SRC_URL="https://github.com/DSpace/DSpace/releases/download/dspace-7.6/dspace-7.6-release.tar.gz"
+
+# Install required software
+apt-get update
+apt-get -y install openjdk-17-jdk maven ant
+
+# Add PostgreSQL APT repository and install PostgreSQL 15
+echo "deb http://apt.postgresql.org/pub/repos/apt/ buster-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+apt-get update
+apt-get -y install postgresql-15 postgresql-client-15 postgresql-contrib-15
+
+# Create a system user for DSpace
+useradd -m -d "$DS_HOME" -s /bin/bash -U -c "DSpace User" "$DS_USER"
+
+# Download DSpace source code
+mkdir -p "$DS_HOME"
+cd "$DS_HOME"
+wget "$DS_SRC_URL"
+tar -zxvf dspace-7.6-release.tar.gz
+rm dspace-7.6-release.tar.gz
+cd dspace-7.6
+
+# Build DSpace
+mvn package
+
+# Configure PostgreSQL
+sudo -u postgres createuser -U postgres -d -A -P "$DS_USER"
+sudo -u postgres createdb -U postgres -O "$DS_USER" "$DS_USER"
+sudo -u postgres psql -U postgres -d "$DS_USER" -c "CREATE EXTENSION pgcrypto;"
+
+# Configure DSpace
+sudo -u "$DS_USER" cp -r config/local.cfg.EXAMPLE config/local.cfg
+sudo -u "$DS_USER" cp -r config/modules/default.cfg.EXAMPLE config/modules/default.cfg
+sudo -u "$DS_USER" mvn package
+sudo -u "$DS_USER" ./dspace database migrate
+sudo -u "$DS_USER" ./dspace create-administrator
+sudo -u "$DS_USER" ./dspace run
+
+# Install and configure Tomcat
+apt-get -y install tomcat9
+
+# Configure Tomcat to run as $DS_USER
+echo "CATALINA_PID=\"$TOMCAT_HOME/temp/tomcat.pid\"" >> /etc/default/tomcat9
+echo "CATALINA_HOME=\"$TOMCAT_HOME\"" >> /etc/default/tomcat9
+echo "CATALINA_BASE=\"$TOMCAT_HOME\"" >> /etc/default/tomcat9
+echo "TOMCAT_USER=$DS_USER" >> /etc/default/tomcat9
+
+# Modify Tomcat configuration for UTF-8 support
+echo 'JAVA_OPTS="-Xmx512M -Xms64M -Dfile.encoding=UTF-8"' >> /etc/default/tomcat9
+sed -i '/<Connector port="8080"/ a \    URIEncoding="UTF-8"' /etc/tomcat9/server.xml
+
+# Clean up
+cd "$DS_HOME"
+chown -R "$DS_USER:$DS_GROUP" .
+rm -rf /tmp/dspace
+
+echo "DSpace 7.6 has been successfully installed and configured with JDK 17, PostgreSQL 15, Tomcat 9, and is running as $DS_USER."
+
+# Check if PostgreSQL service is running
+if systemctl is-active --quiet postgresql; then
+    echo "PostgreSQL service is running."
+else
+    echo "PostgreSQL service is not running."
+fi
+
+# Check if the DSpace database exists
+if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw "$DS_USER"; then
+    echo "DSpace database '$DS_USER' exists."
+else
+    echo "DSpace database '$DS_USER' does not exist."
+fi
+
+# Check if Tomcat service is running
+if systemctl is-active --quiet tomcat; then
+    echo "Tomcat service is running."
+else
+    echo "Tomcat service is not running."
+fi
+
+# Check if Tomcat is listening on port 8080
+if nc -z -v -w5 localhost 8080; then
+    echo "Tomcat is listening on port 8080."
+else
+    echo "Tomcat is not listening on port 8080."
+fi
+# Check if DSpace is running
+if curl -s --head --request GET http://localhost:8080/ | grep "HTTP/1.1 200 OK" > /dev/null; then
+    echo "DSpace is running and accessible."
+else
+    echo "DSpace is not running or not accessible."
+fi
+
+  
+  
