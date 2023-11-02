@@ -10,7 +10,7 @@ DS_SRC_URL="https://codeload.github.com/DSpace/DSpace/tar.gz/refs/tags/dspace-7.
 
 # Install required software
 apt-get update
-apt-get -y install openjdk-17-jdk maven ant wget curl
+apt-get -y install openjdk-17-jdk maven ant wget curl git
 
 # Add PostgreSQL APT repository and install PostgreSQL
 
