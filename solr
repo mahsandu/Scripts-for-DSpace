@@ -1,0 +1,62 @@
+#!/bin/bash
+# location: /etc/init/d/solr
+# solr        This shell script takes care of starting and stopping Solr Compiled by Mubassir at sothik.com
+#
+# chkconfig: - 85 15
+# description: Apache Solr is an open source search platform built on Apache Lucene.
+
+### BEGIN INIT INFO
+# Provides:          solr
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Apache Solr is an open source search platform built on Apache Lucene.
+# Description:       Apache Solr is an open source search platform built on Apache Lucene.
+### END INIT INFO
+
+SOLR_HOME="/opt/solr"
+SOLR_USER="solr"
+SOLR_START_CMD="${SOLR_HOME}/bin/solr start"
+SOLR_STOP_CMD="${SOLR_HOME}/bin/solr stop"
+SOLR_STATUS_CMD="${SOLR_HOME}/bin/solr status"
+
+start() {
+    echo -n "Starting Solr: "
+    su - ${SOLR_USER} -c "${SOLR_START_CMD}"
+    echo
+}
+
+stop() {
+    echo -n "Stopping Solr: "
+    su - ${SOLR_USER} -c "${SOLR_STOP_CMD}"
+    echo
+}
+
+status() {
+    echo -n "Checking Solr status: "
+    su - ${SOLR_USER} -c "${SOLR_STATUS_CMD}"
+    echo
+    }
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        stop
+        start
+        ;;
+    status)
+        status
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac
+
+exit 0
